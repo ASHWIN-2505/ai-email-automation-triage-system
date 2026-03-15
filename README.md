@@ -53,3 +53,19 @@ The system ensures safe automation by combining LLM-based decision making with h
 * Decision systems with confidence gating
 * Human-in-the-loop AI safety
 * Data monitoring and logging
+
+## Workflow Architecture
+
+![Workflow](Workflow.png)
+
+---
+
+## Example Email Received
+
+![Received Email](received_mail.png)
+
+---
+
+## Telegram / Alert Logging
+
+![Google Sheet Log](google_sheet_alert.png)
