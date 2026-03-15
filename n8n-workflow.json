@@ -1,0 +1,574 @@
+{
+  "name": "AI Email Responder – v1",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        144
+      ],
+      "id": "09c2b876-7e59-4ea2-9394-1911ee75c0c3",
+      "name": "Email Trigger (IMAP)",
+      "credentials": {
+        "imap": {
+          "id": "PbesYJrTQevyu1ll",
+          "name": "IMAP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "946a1bfd-a610-4659-9312-3c4657356092",
+              "name": "from",
+              "value": "=={{ $json.from?.text || $json.from }}\n",
+              "type": "string"
+            },
+            {
+              "id": "8eb4b4d3-8510-4354-ad73-a1d70554172d",
+              "name": "subject",
+              "value": "={{ $json.subject }}",
+              "type": "string"
+            },
+            {
+              "id": "6e0c0602-7e5b-4377-9d5b-312a35bd8918",
+              "name": "raw_body",
+              "value": "=={{ $json.textPlain || $json.textHtml }}\n",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        144
+      ],
+      "id": "de3da67b-4baf-4f8c-8a88-1ffa565161d0",
+      "name": "Extract Clean Email"
+    },
+    {
+      "parameters": {
+        "jsCode": "let body = $json.raw_body || \"\";\n\n// Remove HTML tags if any\nbody = body.replace(/<[^>]*>/g, \" \");\n\n// Remove quoted replies (common patterns)\nbody = body.replace(/On.*wrote:/gi, \"\");\nbody = body.replace(/From:.*$/gim, \"\");\nbody = body.replace(/Sent:.*$/gim, \"\");\nbody = body.replace(/To:.*$/gim, \"\");\nbody = body.replace(/Subject:.*$/gim, \"\");\n\n// Remove extra whitespace\nbody = body.replace(/\\s+/g, \" \").trim();\n\nreturn [{\n  json: {\n    from: $json.from,\n    subject: $json.subject,\n    clean_body: body\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        144
+      ],
+      "id": "a7c3a99b-5957-4bad-926a-ab8dcfee62b2",
+      "name": "Clean Email Body"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Verified information you are allowed to use:\n{{ $json.verified_knowledge }}\n\n--------------------\n\nFrom: {{ $json.from }}\nSubject: {{ $json.subject }}\n\nEmail:\n{{ $json.clean_body }}\n",
+        "options": {
+          "systemMessage": "You are an AI decision engine for automated email responses.\n\nYour task:\n1. Classify the email intent.\n2. Decide how confident you are in replying.\n3. Generate a professional reply if appropriate.\n4. Explain your decision briefly.\n\nRules:\n- Do NOT mention AI or automation.\n- Be cautious with legal, financial, or sensitive topics.\n- If the email is unclear, lower the confidence.\n- Replies must be polite, concise, and human.\n- Do NOT include any signature, sign-off, name, company, or placeholders in the reply.\n- The reply must end without a closing phrase (no “Best regards”, “Sincerely”, etc.).\n- Match the tone to the sender’s enthusiasm level.\n- If the inquiry is clearly positive or curious, sound welcoming.\n- Do not sound overly promotional.\n- Never invent pricing, plans, features, policies, or timelines.\n- If exact information is not provided in the verified knowledge, you must say you cannot confirm and ask for clarification or redirect appropriately.\n\nReturn ONLY valid JSON in the following format:\n\n{\n  \"intent\": \"support | sales | general | spam | sensitive\",\n  \"confidence\": 0.00,\n  \"reply\": \"email reply text\",\n  \"reason\": \"short explanation of the decision\"\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        144
+      ],
+      "id": "034f94ad-98aa-4301-9dec-fcbcc1507b56",
+      "name": "Generate Email Reply (AI Model – Groq)"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        368
+      ],
+      "id": "7bc268ca-36f2-43d4-83b9-7b2011ea4dfe",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "lMGXCuz6oyY4dZn7",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0f1a00ce-311e-45b7-9bb1-ddae21a4c188",
+              "leftValue": "=={{ $json.from }}\n",
+              "rightValue": "no-reply",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "ebdd80bf-6636-40ea-aeee-98e95b9a8487",
+              "leftValue": "=={{ $json.subject }}\n",
+              "rightValue": "security",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "7fd0aa7a-7cf3-463c-b834-79c876358279",
+              "leftValue": "={{ $json.clean_body.length }}\n",
+              "rightValue": 20,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "92c875e0-ad98-47d1-84bf-49667033ed11",
+              "leftValue": "=={{ $json.clean_body }}\n",
+              "rightValue": "This is an automated message",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        144
+      ],
+      "id": "be436e8a-91fe-4472-a158-223d741c8d4b",
+      "name": "Should Auto-Reply?"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Email Trigger (IMAP)').item.json.to }}",
+        "toEmail": "={{ $('Email Trigger (IMAP)').item.json.from }}",
+        "subject": "={{ $('Email Trigger (IMAP)').item.json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.reply + \"\\n\\nBest regards,\\nAshwin\" }}\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1920,
+        48
+      ],
+      "id": "388fd7da-4ff8-431a-9e3d-0dc748306f6b",
+      "name": "Send email",
+      "webhookId": "8a28b0fd-3198-49ef-b9e9-3a5804bc7d3e",
+      "credentials": {
+        "smtp": {
+          "id": "VU3mIMrHvqDr9BeY",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = JSON.parse($json.output);\n\nreturn [{\n  json: {\n    reply: data.reply,\n    intent: data.intent,\n    confidence: data.confidence,\n    reason: data.reason\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        144
+      ],
+      "id": "bd0d5d48-1802-47b5-b4e6-52db1e458a70",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const email_text =\n  $json.reply +\n  \"\\n\\nBest regards,\\nAshwin\";\n\nreturn [{\n  json: {\n    email_text,\n    intent: $json.intent,\n    confidence: $json.confidence,\n    reason: $json.reason\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        -864
+      ],
+      "id": "0b5e8125-7020-4b5b-a36f-f717b35b5a51",
+      "name": "Build Final Email"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4fd0e1c4-77fa-436e-9d27-ed412b3cbff3",
+              "name": "verified_knowledge",
+              "value": "Company: Example Cloud Backup  Known facts: - We offer cloud backup services. - Detailed pricing and plans must be shared via official documentation or sales team. - API and automation capabilities exist, but exact features vary by plan. - Trial availability depends on current offers.  Rule: If a detail is not listed above, it must NOT be stated as fact.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        144
+      ],
+      "id": "a71245fb-2164-4150-8e28-14135d8b9c7d",
+      "name": "Verified_Knowledge"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4a012142-899e-4cc4-94b3-9927695f73c4",
+              "leftValue": "={{ $json.confidence }}",
+              "rightValue": 0.65,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1696,
+        144
+      ],
+      "id": "b93c471f-cb1e-493c-b2f6-e6f4dec9674d",
+      "name": "Confidence Gate"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1orpoSUQTMJeuyFiqhN6Cpvw6Ao1r63EnhKvZ-O0Pzww",
+          "mode": "list",
+          "cachedResultName": "AI_Email_Low_Confidence_Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1orpoSUQTMJeuyFiqhN6Cpvw6Ao1r63EnhKvZ-O0Pzww/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1orpoSUQTMJeuyFiqhN6Cpvw6Ao1r63EnhKvZ-O0Pzww/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $('Email Trigger (IMAP)').item.json.date }}",
+            "From": "={{ $('Email Trigger (IMAP)').item.json.from }}",
+            "Subject": "={{ $('Email Trigger (IMAP)').item.json.subject }}",
+            "Clean_body": "={{ $json.clean_body_safe }}",
+            "Confidence": "={{ $('Code in JavaScript').item.json.confidence }}",
+            "AI-Reply": "={{ $('Code in JavaScript').item.json.reply }}",
+            "Intent": "={{ $('Code in JavaScript').item.json.intent }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "From",
+              "displayName": "From",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Subject",
+              "displayName": "Subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Intent",
+              "displayName": "Intent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Confidence",
+              "displayName": "Confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "AI-Reply",
+              "displayName": "AI-Reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Clean_body",
+              "displayName": "Clean_body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2144,
+        144
+      ],
+      "id": "060ec961-f614-4f3d-8746-e93290138ba5",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4XC5QC5pqquWOwvl",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ...$json,\n    clean_body_safe: ($json.clean_body || '')\n      .replace(/\\n/g, ' ')\n      .replace(/[’‘]/g, \"'\")\n      .replace(/[“”]/g, '\"')\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        240
+      ],
+      "id": "26f25ab9-4857-435d-91d2-e239e312e9f0",
+      "name": "Prepare Sheet Data"
+    },
+    {
+      "parameters": {
+        "chatId": "1247051401",
+        "text": "=⚠️ Low-Confidence Email Detected\n\nFrom: {{ $('Email Trigger (IMAP)').item.json.from }}\nSubject: {{ $('Email Trigger (IMAP)').item.json.subject }}\n\nIntent: {{ $('Confidence Gate').item.json.intent }}\nConfidence: {{ $('Confidence Gate').item.json.confidence }}\n\nAI Draft: {{ $('Confidence Gate').item.json.reply }}\n\nAction: Manual review required.\n",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2144,
+        336
+      ],
+      "id": "bda7a273-b6bf-4d09-88ab-24fabbc3e1ac",
+      "name": "Send a text message",
+      "webhookId": "293b2f36-a50d-4529-be9f-cc3e62b6d360",
+      "credentials": {
+        "telegramApi": {
+          "id": "fiFSgdeewPRqxOVP",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Email Trigger (IMAP)": {
+      "main": [
+        [
+          {
+            "node": "Extract Clean Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Clean Email": {
+      "main": [
+        [
+          {
+            "node": "Clean Email Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Email Body": {
+      "main": [
+        [
+          {
+            "node": "Verified_Knowledge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate Email Reply (AI Model – Groq)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Email Reply (AI Model – Groq)": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Auto-Reply?": {
+      "main": [
+        [
+          {
+            "node": "Generate Email Reply (AI Model – Groq)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Confidence Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Final Email": {
+      "main": [
+        []
+      ]
+    },
+    "Verified_Knowledge": {
+      "main": [
+        [
+          {
+            "node": "Should Auto-Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confidence Gate": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Sheet Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Sheet Data": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "47dc3c07-142b-4ec2-bc13-a1a14e45d364",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "06c6dfe0b655e581f83a8605588555aba758919b7488758bcfae79e952932b18"
+  },
+  "id": "3QQQ4XikAV4bnNdL",
+  "tags": []
+}
