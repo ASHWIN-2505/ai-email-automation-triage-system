@@ -45,10 +45,6 @@ The system ensures safe automation by combining LLM-based decision making with h
 * Telegram Alert
 * Audit Log
 
-**Project Report**
-
-Full documentation available here:
-docs/project-report.md
 
 **Skills Demonstrated**
 
