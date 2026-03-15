@@ -62,7 +62,7 @@ The system ensures safe automation by combining LLM-based decision making with h
 
 ## Example Email Received
 
-![Received Email](Screenshot/Received_mail.png)
+![Received Email](Screenshot/Recieved_mail.png)
 
 ---
 
