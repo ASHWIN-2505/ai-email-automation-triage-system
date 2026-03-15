@@ -56,16 +56,16 @@ The system ensures safe automation by combining LLM-based decision making with h
 
 ## Workflow Architecture
 
-![Workflow](Workflow.png)
+![Workflow](screenshot/workflow.png)
 
 ---
 
 ## Example Email Received
 
-![Received Email](received_mail.png)
+![Received Email](screenshot/Received_mail.png)
 
 ---
 
 ## Telegram / Alert Logging
 
-![Google Sheet Log](google_sheet_alert.png)
+![Google Sheet Log](screenshot/Google_sheet_alert.png)
